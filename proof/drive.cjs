@@ -63,6 +63,15 @@ const { chromium } = require('playwright-core');
     await shot('7-back-to-stack');
     await report('clicked back');
 
+    // The tallest case: a part with four steps.
+    const drawing = await page.locator('.h1').boundingBox();
+    await page.mouse.click(drawing.x + drawing.width / 2, drawing.y + drawing.height - 12);
+    await page.waitForTimeout(600);
+    await page.mouse.click(...(await center('.p1-0')));
+    await page.mouse.move(10, 10);
+    await shot('8-four-steps');
+    await report('opened Typst');
+
     console.log('console errors:', errors.length ? errors : 'none');
     await browser.close();
 })().catch((e) => {
