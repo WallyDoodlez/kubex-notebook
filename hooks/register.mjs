@@ -1,4 +1,5 @@
 import { addCell, contextFor, eventsText } from '../lib/cells.mjs';
+import { followPrompt, parseFollowReply, shouldFollow } from '../lib/follow.mjs';
 import { notebookHtml } from '../lib/html.mjs';
 
 const PANE = 'notebook';
@@ -36,6 +37,10 @@ const INPUT_SCHEMA = {
 let cells = [];
 let pending = [];
 let dir = null;
+// Follow-along: whether it is on, whether Claude added a cell itself this turn, and a drawing in progress.
+let follow = false;
+let addedThisTurn = false;
+let drawing = false;
 
 async function notebookDir($) {
     if (dir) {
@@ -64,6 +69,51 @@ function record($, cell, kind, value) {
     save($).catch(() => {});
 }
 
+// Puts a cell in the notebook and shows it; returns the cell and whether the pane is showing.
+async function placeCell($, input) {
+    const added = addCell(cells, input, await $.clock.now());
+    if (added.error) {
+        return added;
+    }
+    cells = added.cells;
+    await save($);
+    // A pane a mod opens by itself only shows in a wide window.
+    const opened = await $.ui.open({ id: PANE, title: 'Notebook' });
+    $.ui.invalidate('ui.render');
+    if (!opened?.isPlaced) {
+        $.ui.toast(`Notebook cell #${added.cell.id} added. Run /nb to open the pane`, { timeoutMs: 8000 });
+    }
+    return { cell: added.cell, isPlaced: Boolean(opened?.isPlaced) };
+}
+
+// Runs in the background after a turn: a fork of the conversation draws what just happened.
+async function drawFollowUp($) {
+    drawing = true;
+    $.ui.invalidate('ui.render');
+    try {
+        const reply = await $.model.fork({ prompt: followPrompt(cells) });
+        const input = reply.isAnswered ? parseFollowReply(reply.text) : null;
+        if (input) {
+            const placed = await placeCell($, input);
+            // A cell number that does not exist: add the drawing as a new cell instead.
+            if (placed.error && input.replaces != null) {
+                const { replaces, ...fresh } = input;
+                await placeCell($, fresh);
+            }
+        }
+    } finally {
+        drawing = false;
+        $.ui.invalidate('ui.render');
+    }
+}
+
+async function setFollow($, on) {
+    follow = on;
+    await $.store.set('follow', on);
+    $.ui.toast(on ? 'Notebook follows the conversation: a diagram after each substantial answer' : 'Notebook follow-along is off');
+    $.ui.invalidate('ui.render');
+}
+
 export function register(on) {
     on('session.start', async ($, e, next) => {
         try {
@@ -73,6 +123,7 @@ export function register(on) {
         } catch {
             // A new session has no notebook yet.
         }
+        follow = (await $.store.get('follow')) === true;
         await $.tool.register({
             name: 'add_cell',
             description: TOOL_DESCRIPTION,
@@ -80,29 +131,27 @@ export function register(on) {
             isDeferred: false,
         });
         // Commands last: a refused registration throws and skips the rest.
-        await $.command.register({ name: 'nb', description: 'Open the notebook pane', immediate: true });
+        await $.command.register({
+            name: 'nb',
+            description: 'Open the notebook pane; "follow" or "follow off" draws a diagram after each answer',
+            argumentHint: '[follow | follow off]',
+            immediate: true,
+        });
         await $.command.register({ name: 'nb-html', description: 'Print the path of the notebook as an HTML file' });
         return next(e);
     });
 
     on('tool.call', { tool: TOOL }, async ($, e) => {
-        const added = addCell(cells, e, await $.clock.now());
-        if (added.error) {
-            return { result: `Not added: ${added.error}` };
+        const placed = await placeCell($, e);
+        if (placed.error) {
+            return { result: `Not added: ${placed.error}` };
         }
-        cells = added.cells;
-        await save($);
-        // A pane a mod opens by itself only shows in a wide window, so Claude is told where the cell is.
-        const opened = await $.ui.open({ id: PANE, title: 'Notebook' });
-        $.ui.invalidate('ui.render');
+        addedThisTurn = true;
         const verb = e.replaces == null ? 'Added' : 'Replaced';
-        const where = opened?.isPlaced
+        const where = placed.isPlaced
             ? 'It is showing in the notebook pane beside the conversation.'
             : 'The notebook pane is closed: tell the person to run /nb to see it.';
-        if (!opened?.isPlaced) {
-            $.ui.toast(`Notebook cell #${added.cell.id} added. Run /nb to open the pane`, { timeoutMs: 8000 });
-        }
-        return { result: `${verb} cell #${added.cell.id} "${added.cell.title}". ${where}` };
+        return { result: `${verb} cell #${placed.cell.id} "${placed.cell.title}". ${where}` };
     }).catch(async ($, e, next) => {
         return { result: `The notebook failed to add the cell (${next.error.kind}); answer in chat instead.` };
     });
@@ -121,7 +170,28 @@ export function register(on) {
         return next(e);
     });
 
-    on('command.run', { command: 'nb' }, async ($) => {
+    on('turn.start', async ($, e, next) => {
+        if (!e.agentId) {
+            addedThisTurn = false;
+        }
+        return next(e);
+    });
+
+    // Not awaited: the person's next prompt never waits for the drawing.
+    on('turn.complete', async ($, e, next) => {
+        if (shouldFollow(e, { follow, addedThisTurn, inFlight: drawing })) {
+            drawFollowUp($).catch(() => {});
+        }
+        return next(e);
+    });
+
+    on('command.run', { command: 'nb' }, async ($, e) => {
+        const arg = String(e.args ?? '').trim().toLowerCase();
+        if (arg === 'follow' || arg === 'follow on') {
+            await setFollow($, true);
+        } else if (arg === 'follow off') {
+            await setFollow($, false);
+        }
         await $.ui.open({ id: PANE, title: 'Notebook', focus: true, closeOnEscape: true });
         return {};
     });
@@ -143,6 +213,16 @@ export function register(on) {
             columnGap: 2,
             children: [
                 Text({ bold: true, children: [`Notebook · ${cells.length} cell${cells.length === 1 ? '' : 's'}`] }),
+                Button({
+                    key: 'follow',
+                    label: follow ? 'Following: on' : 'Following: off',
+                    dimColor: !follow,
+                    onPress: () => {
+                        setFollow($, !follow).catch(() => {});
+                        return undefined;
+                    },
+                }),
+                ...(drawing ? [Text({ dimColor: true, children: ['Drawing the last answer…'] })] : []),
                 ...(pending.length
                     ? [
                           Button({

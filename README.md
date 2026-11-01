@@ -9,6 +9,7 @@ A living notebook pane for Claude Code. When a picture or a choice explains more
 - The mod registers a tool, `mcp__notebook__add_cell`. Claude calls it with a title, Markdown, an SVG drawing, clickable `choices`, or an `ask` question with a text box. `replaces` updates a cell in place.
 - The pane draws the cells, newest first: Markdown, the SVG (interactive in the Desktop app: `<title>` tooltips, CSS `:hover`), buttons for the choices and a text field for the question.
 - A click or an answer is queued and shown in the pane. Your next prompt carries it to Claude as context (a `prompt.submit` hook), or press **Send to Claude now** to start a turn with it.
+- **Follow-along** (`/nb follow`, or the **Following** button in the pane): after each substantial answer, the mod asks a fork of the conversation for one diagram of what just happened, or an update to an existing cell on the same topic. It runs in the background, so your next prompt never waits. It skips short answers, interrupted turns, subagents, and turns where Claude already added a cell. Each drawing is one extra model request over the cached conversation, billed like any other request in the session.
 - Every change also writes the notebook to `~/.cache/cc-notebook/<session-id>/` as `cells.json` and a self-contained `index.html`, with each drawing in a script-less sandboxed frame. Resuming a session restores its notebook.
 
 ## Where it draws
@@ -41,6 +42,7 @@ Then ask for something visual, for example *"draw the request flow of this servi
 | Command | What it does |
 |---|---|
 | `/nb` | Open the notebook pane |
+| `/nb follow` / `/nb follow off` | Draw a diagram after each substantial answer, or stop |
 | `/nb-html` | Print the path of the notebook's HTML copy |
 
 ## Development
