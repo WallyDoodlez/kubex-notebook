@@ -1,6 +1,10 @@
 // A gallery of what the notebook should produce for software work: one form per kind of content,
 // all in one style, with CSS hover and no scripts. The data in the examples is made up.
 // Run: node proof/gallery.mjs > proof/gallery.html
+import { readFileSync } from 'node:fs';
+
+const shot = (name) => `data:image/jpeg;base64,${readFileSync(new URL(`./screens/${name}.jpg`, import.meta.url)).toString('base64')}`;
+
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 const f = (n) => Number(n).toFixed(1);
 
@@ -10,6 +14,8 @@ const css = [];
 function canvas(H = 340) {
     const parts = [];
     const caps = [];
+    const defs = new Map();
+    const overlays = [];
     const c = {
         add: (s) => parts.push(s),
         // Marks a shape as hoverable, with a line of explanation under the drawing.
@@ -39,7 +45,29 @@ function canvas(H = 340) {
                 parts.push(`<text class="sm" x="${f(lx ?? (x1 + x2) / 2)}" y="${f(ly ?? (y1 + y2) / 2 - 6)}" text-anchor="middle">${esc(label)}</text>`);
             }
         },
-        svg: (alt) => `<svg viewBox="0 0 640 ${H}" role="img" aria-label="${esc(alt)}">${parts.join('')}${caps.join('')}</svg>`,
+        // One copy of each screenshot, drawn as often as needed.
+        image(name) {
+            if (!defs.has(name)) {
+                const id = `img${uid++}`;
+                defs.set(name, { id, svg: `<image id="${id}" href="${shot(name)}" width="640" height="400"/>` });
+            }
+            return defs.get(name).id;
+        },
+        place: (name, x, y, w, extra = '') => `<use ${extra} href="#${c.image(name)}" transform="translate(${f(x)} ${f(y)}) scale(${(w / 640).toFixed(4)})"/>`,
+        // A screenshot in the diagram; hovering it shows it large.
+        screen(name, x, y, w, label, cap, { cls = '', zoom = 440 } = {}) {
+            const hot = c.hot(cap);
+            const n = hot.split(' h')[1];
+            const h = w * 0.625;
+            c.text(x, y - 8, label, 'sm');
+            c.add(`<g class="${hot}">${c.place(name, x, y, w)}<rect class="frame ${cls}" x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${f(h)}" rx="5"/></g>`);
+            const zh = zoom * 0.625;
+            const zx = (640 - zoom) / 2;
+            const zy = (H - zh) / 2 - 10;
+            overlays.push(`<g class="zm z${n}">${c.place(name, zx, zy, zoom)}<rect class="frame zoom" x="${f(zx)}" y="${f(zy)}" width="${zoom}" height="${f(zh)}" rx="6"/></g>`);
+            css.push(`svg:has(.h${n}:hover) .z${n}{opacity:1}`);
+        },
+        svg: (alt) => `<svg viewBox="0 0 640 ${H}" role="img" aria-label="${esc(alt)}"><defs>${[...defs.values()].map((d) => d.svg).join('')}</defs>${parts.join('')}${overlays.join('')}${caps.join('')}</svg>`,
     };
     return c;
 }
@@ -333,7 +361,70 @@ function waterfall() {
     return c.svg('A request trace as a waterfall');
 }
 
+function screenFlow() {
+    const c = canvas(400);
+    c.screen('orders', 16, 30, 170, 'orders list', 'Staff pick the order from the list');
+    c.screen('detail', 235, 30, 170, 'order detail', 'Refund is the red button at the bottom right');
+    c.screen('dialog', 454, 30, 170, 'confirm dialog', 'A reason is required before confirming');
+    c.screen('error', 235, 262, 170, 'declined', 'Stripe refuses refunds on charges older than 180 days', { cls: 'red' });
+    c.screen('done', 454, 262, 170, 'refunded', 'The banner confirms the amount and the timing', { cls: 'green' });
+    c.arrow(186, 83, 235, 83, { label: 'open' });
+    c.arrow(405, 83, 454, 83, { label: 'Refund' });
+    c.add('<path class="node amber" d="M497 192L539 164L581 192L539 220Z"/><text class="sm" x="539" y="196" text-anchor="middle">stripe ok?</text>');
+    c.arrow(539, 136, 539, 164);
+    c.arrow(539, 220, 539, 254, { label: 'yes', lx: 556, ly: 242 });
+    c.arrow(497, 192, 330, 254, { label: 'no', lx: 424, ly: 212, cls: 'red' });
+    c.arrow(300, 254, 300, 136, { label: 'try again', lx: 262, ly: 200, dashed: true });
+    return c.svg('Screens of the refund flow, with its success and failure paths');
+}
+
+function uiBeforeAfter() {
+    const c = canvas(290);
+    c.screen('detail', 12, 44, 300, 'before', 'The refund button is the same weight as Print', { zoom: 460 });
+    c.screen('detail-new', 328, 44, 300, 'after', 'The refund button is larger and bolder', { zoom: 460 });
+    const scale = 300 / 640;
+    for (const x of [12, 328]) {
+        c.add(`<rect class="frame amber" x="${f(x + 470 * scale)}" y="${f(44 + 208 * scale)}" width="${f(160 * scale)}" height="${f(52 * scale)}" rx="4"/>`);
+    }
+    c.text(320, 250, 'only the button changed: 36 px to 42 px tall, semibold', 'sm', 'middle');
+    return c.svg('The order page before and after a button change');
+}
+
+function annotated() {
+    const c = canvas(310);
+    const w = 384;
+    const k = w / 640;
+    const X = 12;
+    const Y = 20;
+    c.add(c.place('detail', X, Y, w));
+    c.add(`<rect class="frame" x="${X}" y="${Y}" width="${w}" height="${w * 0.625}" rx="5"/>`);
+    const items = [
+        ['TopNav', 'src/layout/TopNav.tsx', 'Shared by every page', 0, 0, 640, 44],
+        ['OrderSummary', 'src/orders/OrderSummary.tsx', 'Reads the order from useOrder(id)', 18, 97, 604, 107],
+        ['PrintButton', 'src/orders/PrintButton.tsx', 'Opens the browser print dialog', 489, 216, 57, 36],
+        ['RefundButton', 'src/orders/RefundButton.tsx', 'Opens RefundDialog; hidden without the refunds permission', 553, 216, 69, 36],
+    ];
+    items.forEach(([name, file, cap, x, y, bw, bh], i) => {
+        const hot = c.hot(cap);
+        const n = hot.split(' h')[1];
+        const rx = X + x * k;
+        const ry = Y + y * k;
+        const rowY = 48 + i * 58;
+        c.add(`<rect class="region r${n} ${hot}" x="${f(rx)}" y="${f(ry)}" width="${f(bw * k)}" height="${f(bh * k)}" rx="3"/>`);
+        c.add(`<circle class="mk" cx="${f(rx + 2)}" cy="${f(ry + 2)}" r="8"/><text class="mkn" x="${f(rx + 2)}" y="${f(ry + 5.5)}">${i + 1}</text>`);
+        c.add(`<g class="${hot}"><rect class="zone" x="412" y="${rowY - 18}" width="222" height="50"/></g>`);
+        c.add(`<circle class="mk" cx="424" cy="${rowY - 4}" r="8"/><text class="mkn" x="424" y="${rowY - 0.5}">${i + 1}</text>`);
+        c.text(440, rowY, name, 'lb');
+        c.text(440, rowY + 16, file, 'sm');
+        css.push(`svg:has(.h${n}:hover) .r${n}{fill-opacity:.16;stroke-opacity:1}`);
+    });
+    return c.svg('A screenshot with each part labelled by its component');
+}
+
 const EXAMPLES = [
+    ['Walk me through the refund flow', 'Screen flow', 'Real screens, joined by what happens between them', screenFlow],
+    ['What did your CSS change do?', 'UI before and after', 'Screenshots side by side, the change marked', uiBeforeAfter],
+    ['What component is this?', 'Annotated screen', 'A screenshot mapped to the code behind it', annotated],
     ['How does token refresh work?', 'Sequence diagram', 'Who calls whom, in what order', sequence],
     ['Why did my PR not deploy?', 'Flow chart', 'Steps with branches', flow],
     ['What states can a PR be in?', 'State diagram', 'Things that change state', state],
@@ -386,6 +477,13 @@ svg text{font-family:ui-monospace,Consolas,monospace;pointer-events:none}
 .node[class*=" blue"],.node[class*=" teal"],.node[class*=" green"],.node[class*=" amber"],.node[class*=" red"],.node[class*=" violet"]{fill:color-mix(in srgb,var(--tint) 13%,var(--panel));stroke:color-mix(in srgb,var(--tint) 62%,var(--edge))}
 .wire.blue,.wire.teal,.wire.green,.wire.amber,.wire.red,.wire.violet{stroke:color-mix(in srgb,var(--tint) 75%,var(--edge))}
 .pt.blue,.pt.teal,.pt.green,.pt.amber,.pt.red,.pt.violet{fill:color-mix(in srgb,var(--tint) 30%,var(--panel));stroke:var(--tint);stroke-width:1.4}
+.frame{fill:none;stroke:var(--edge);stroke-width:.9}
+.frame.blue,.frame.teal,.frame.green,.frame.amber,.frame.red,.frame.violet{stroke:var(--tint);stroke-width:1.5}
+.frame.zoom{stroke:var(--hi);stroke-width:1.2}
+.zm{opacity:0;pointer-events:none;transition:opacity .15s}
+.region{fill:var(--acc);fill-opacity:0;stroke:var(--acc);stroke-opacity:.45;stroke-width:1.1;transition:fill-opacity .12s,stroke-opacity .12s}
+.mk{fill:var(--acc)}
+svg text.mkn{font-size:10px;fill:#fff;text-anchor:middle}
 .band{fill:var(--tint);fill-opacity:.09;stroke:none}
 .wire{fill:none;stroke:var(--edge);stroke-width:.9}
 .wire.acc{stroke:var(--acc);stroke-width:1.3}
