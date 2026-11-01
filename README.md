@@ -23,6 +23,14 @@ A living notebook pane for Claude Code. When a picture or a choice explains more
 
 Needs Claude Code 2.1.287 or later (mods). Tested with 2.1.316.
 
+Install it from this repo's marketplace, in the Desktop app or the terminal:
+
+```
+/plugin install notebook --marketplace WallyDoodlez/cc-notebook
+```
+
+Or load a clone for one session (terminal only):
+
 ```bash
 git clone https://github.com/WallyDoodlez/cc-notebook
 claude --plugin-dir ./cc-notebook
