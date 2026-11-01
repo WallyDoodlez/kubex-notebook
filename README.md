@@ -9,6 +9,10 @@ A living notebook pane for Claude Code. When a picture or a choice explains more
 - The mod registers a tool, `mcp__notebook__add_cell`. Claude calls it with a title, Markdown, an SVG drawing, clickable `choices`, or an `ask` question with a text box. `replaces` updates a cell in place.
 - The pane draws the cells, newest first: Markdown, the SVG (interactive in the Desktop app: `<title>` tooltips, CSS `:hover`), buttons for the choices and a text field for the question.
 - A click or an answer is queued and shown in the pane. Your next prompt carries it to Claude as context (a `prompt.submit` hook), or press **Send to Claude now** to start a turn with it.
+- **Typst drawings** (when [Typst](https://typst.app) 0.15 is installed): Claude can write a cell in Typst instead of raw SVG, with [fletcher](https://typst.app/universe/package/fletcher) for flows and architecture and [cetz](https://typst.app/universe/package/cetz) / [cetz-plot](https://typst.app/universe/package/cetz-plot) for charts and timelines. The mod compiles it to SVG in a private folder that holds only that source, so the code can't read other files. Typst downloads the packages on first use.
+  - **Hover:** parts wrapped in `hot(id, tip)[...]` get a tooltip and a highlight (Desktop app and the HTML copy).
+  - **Dropdowns that redraw at once:** a cell's `params` show as dropdowns; changing one recompiles the drawing locally, with no model call, and Claude learns the change with your next message.
+  - **Ask about a part:** an "Ask Claude about…" dropdown lists the marked parts; picking one goes to Claude like a choice.
 - **Follow-along** (`/nb follow`, or the **Following** button in the pane): after each substantial answer, the mod asks a fork of the conversation for one diagram of what just happened, or an update to an existing cell on the same topic. It runs in the background, so your next prompt never waits. It skips short answers, interrupted turns, subagents, and turns where Claude already added a cell. Each drawing is one extra model request over the cached conversation, billed like any other request in the session.
 - Every change also writes the notebook to `~/.cache/cc-notebook/<session-id>/` as `cells.json` and a self-contained `index.html`, with each drawing in a script-less sandboxed frame. Resuming a session restores its notebook.
 
@@ -22,7 +26,7 @@ A living notebook pane for Claude Code. When a picture or a choice explains more
 
 ## Try it
 
-Needs Claude Code 2.1.287 or later (mods). Tested with 2.1.316.
+Needs Claude Code 2.1.287 or later (mods). Tested with 2.1.316. Optional: Typst 0.15 on `PATH` (`winget install Typst.Typst`, `brew install typst`), or its path in `NOTEBOOK_TYPST`.
 
 Install it from this repo's marketplace, in the Desktop app or the terminal:
 

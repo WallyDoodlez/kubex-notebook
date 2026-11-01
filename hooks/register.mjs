@@ -1,6 +1,16 @@
 import { addCell, contextFor, eventsText } from '../lib/cells.mjs';
 import { followPrompt, parseFollowReply, shouldFollow } from '../lib/follow.mjs';
 import { notebookHtml } from '../lib/html.mjs';
+import {
+    HOTSPOT_QUERY,
+    addHotspots,
+    checkTypstBody,
+    cleanParams,
+    hotspotName,
+    inputArgs,
+    parseHotspots,
+    typstSource,
+} from '../lib/typst.mjs';
 
 const PANE = 'notebook';
 const TOOL = 'mcp__notebook__add_cell';
@@ -19,6 +29,20 @@ const TOOL_DESCRIPTION = [
     'ask: a question with a text box under the cell; their answer reaches you the same way.',
 ].join('\n');
 
+const TYPST_DESCRIPTION = [
+    '',
+    'typst (preferred over svg for diagrams and charts): the body of a Typst 0.15 document; the notebook sets',
+    'the page (720pt wide, white) and compiles it to SVG. Import what you use:',
+    '  #import "@preview/fletcher:0.5.8" as fletcher: diagram, node, edge   (flows, architecture, state machines)',
+    '  #import "@preview/cetz:0.5.2"   and   #import "@preview/cetz-plot:0.1.4": plot, chart   (plots, charts, timelines)',
+    'In scope: `theme` (fg, muted, border, blue, orange, green, red, purple, yellow, palette, width).',
+    'hot(id, tip)[content] marks a part: hovering it shows the tip, and the person can ask you about it.',
+    'Mark the parts that matter, e.g. node((1,0), hot("gw", "API gateway: checks the JWT locally")[Gateway]).',
+    'params: up to 4 dropdowns, [{name, label, options, value}]; read one with param("name", "default").',
+    'Changing one recompiles the drawing at once, with no call to you; you learn the change with the next message.',
+    'No #page, #set page or #pagebreak. Files cannot be read.',
+].join('\n');
+
 const INPUT_SCHEMA = {
     type: 'object',
     properties: {
@@ -29,6 +53,21 @@ const INPUT_SCHEMA = {
         choices: { type: 'array', items: { type: 'string' }, description: 'Options the person can click' },
         ask: { type: 'string', description: 'A question answered in a text box under the cell' },
         replaces: { type: 'integer', description: 'The number of a cell to replace in place' },
+        typst: { type: 'string', description: 'Typst source for the drawing, compiled to SVG' },
+        params: {
+            type: 'array',
+            description: 'Dropdowns that recompile the typst drawing: read with param("name", "default")',
+            items: {
+                type: 'object',
+                properties: {
+                    name: { type: 'string' },
+                    label: { type: 'string' },
+                    options: { type: 'array', items: { type: 'string' } },
+                    value: { type: 'string' },
+                },
+                required: ['name', 'options'],
+            },
+        },
     },
     required: ['title'],
 };
@@ -41,6 +80,9 @@ let dir = null;
 let follow = false;
 let addedThisTurn = false;
 let drawing = false;
+// The Typst program, when the session found one at start.
+let typstBin = null;
+let compileCount = 0;
 
 async function notebookDir($) {
     if (dir) {
@@ -69,8 +111,60 @@ function record($, cell, kind, value) {
     save($).catch(() => {});
 }
 
+async function findTypst($) {
+    for (const bin of [(await $.env.get('NOTEBOOK_TYPST')) || '', 'typst'].filter(Boolean)) {
+        try {
+            const r = await $.process.run([bin, '--version'], { timeoutMs: 10000 });
+            if (r.exitCode === 0) {
+                return bin;
+            }
+        } catch {
+            // Not on PATH; try the next.
+        }
+    }
+    return null;
+}
+
+// Compiles a Typst body to SVG in a folder that holds only that source, so the code cannot read
+// other files. Returns { svg, hotspots } or { error } with Typst's message for Claude to fix.
+async function compileTypst($, body, params) {
+    if (!typstBin) {
+        return { error: 'Typst is not installed on this machine; send svg instead' };
+    }
+    const problem = checkTypstBody(body);
+    if (problem) {
+        return { error: problem };
+    }
+    const root = `${await notebookDir($)}/typst/${++compileCount}-${await $.clock.now()}`;
+    const src = `${root}/main.typ`;
+    await $.fs.write(src, typstSource(body));
+    // The first compile can download the packages, so it gets longer.
+    const timeoutMs = 120000;
+    const inputs = inputArgs(params);
+    const made = await $.process.run([typstBin, 'compile', '--root', root, ...inputs, src, `${root}/out.svg`], { timeoutMs });
+    if (made.exitCode !== 0) {
+        return { error: `typst failed:\n${(made.stderr || made.stdout).trim().slice(0, 1500)}` };
+    }
+    const asked = await $.process.run(
+        [typstBin, 'eval', HOTSPOT_QUERY, '--in', src, '--root', root, ...inputs, '--format', 'json'],
+        { timeoutMs },
+    );
+    const hotspots = asked.exitCode === 0 ? parseHotspots(asked.stdout) : [];
+    const svg = addHotspots(await $.fs.read(`${root}/out.svg`), hotspots);
+    return { svg, hotspots };
+}
+
 // Puts a cell in the notebook and shows it; returns the cell and whether the pane is showing.
-async function placeCell($, input) {
+async function placeCell($, raw) {
+    let input = raw;
+    if (raw.typst) {
+        const params = cleanParams(raw.params);
+        const made = await compileTypst($, raw.typst, params);
+        if (made.error) {
+            return made;
+        }
+        input = { ...raw, params, svg: made.svg, hotspots: made.hotspots };
+    }
     const added = addCell(cells, input, await $.clock.now());
     if (added.error) {
         return added;
@@ -91,20 +185,37 @@ async function drawFollowUp($) {
     drawing = true;
     $.ui.invalidate('ui.render');
     try {
-        const reply = await $.model.fork({ prompt: followPrompt(cells) });
+        const reply = await $.model.fork({ prompt: followPrompt(cells, { typst: Boolean(typstBin) }) });
         const input = reply.isAnswered ? parseFollowReply(reply.text) : null;
         if (input) {
             const placed = await placeCell($, input);
             // A cell number that does not exist: add the drawing as a new cell instead.
-            if (placed.error && input.replaces != null) {
+            if (placed.error && /^no cell #/.test(placed.error)) {
                 const { replaces, ...fresh } = input;
                 await placeCell($, fresh);
+            } else if (placed.error) {
+                $.ui.toast(`Follow-along drawing failed: ${placed.error.split('\n')[0]}`);
             }
         }
     } finally {
         drawing = false;
         $.ui.invalidate('ui.render');
     }
+}
+
+// A dropdown changed: recompile the drawing with the new value, with no model call.
+async function setParam($, cell, name, value) {
+    const params = cell.params.map((p) => (p.name === name ? { ...p, value } : p));
+    const made = await compileTypst($, cell.typst, params);
+    if (made.error) {
+        $.ui.toast(`Could not redraw cell #${cell.id}: ${made.error.split('\n')[0]}`);
+        return;
+    }
+    Object.assign(cell, { params, svg: made.svg, hotspots: made.hotspots });
+    const label = params.find((p) => p.name === name)?.label ?? name;
+    pending.push({ cellId: cell.id, title: cell.title, kind: 'set', value: `${label} to "${value}"` });
+    $.ui.invalidate('ui.render');
+    await save($);
 }
 
 async function setFollow($, on) {
@@ -124,9 +235,10 @@ export function register(on) {
             // A new session has no notebook yet.
         }
         follow = (await $.store.get('follow')) === true;
+        typstBin = await findTypst($);
         await $.tool.register({
             name: 'add_cell',
-            description: TOOL_DESCRIPTION,
+            description: typstBin ? TOOL_DESCRIPTION + TYPST_DESCRIPTION : TOOL_DESCRIPTION,
             inputSchema: INPUT_SCHEMA,
             isDeferred: false,
         });
@@ -205,7 +317,7 @@ export function register(on) {
         if (e.requestId !== PANE) {
             return next(e);
         }
-        const { Box, Text, Button, Markdown, Input, Svg } = $.ui.resolve(e);
+        const { Box, Text, Button, Markdown, Input, Select, Svg } = $.ui.resolve(e);
         const canDraw = typeof Svg === 'function' && e.surface !== 'terminal';
 
         const header = Box({
@@ -256,6 +368,51 @@ export function register(on) {
                     canDraw
                         ? Svg({ source: cell.svg, alt: cell.alt, isInteractive: true })
                         : Text({ dimColor: true, children: [`[drawing] ${cell.alt} (shown in the Desktop app or /nb-html)`] }),
+                );
+            }
+            const params = cell.params ?? [];
+            const hotspots = cell.hotspots ?? [];
+            if (params.length || hotspots.length) {
+                children.push(
+                    Box({
+                        flexDirection: 'row',
+                        columnGap: 2,
+                        flexWrap: 'wrap',
+                        children: [
+                            ...params.map((p) => {
+                                return Select({
+                                    key: `p${cell.id}-${p.name}`,
+                                    label: p.label,
+                                    options: p.options.map((o) => ({ value: o, label: o })),
+                                    value: p.value,
+                                    onSelect: (value) => {
+                                        setParam($, cell, p.name, value).catch(() => {});
+                                        return undefined;
+                                    },
+                                });
+                            }),
+                            ...(hotspots.length
+                                ? [
+                                      Select({
+                                          key: `h${cell.id}`,
+                                          label: 'Ask Claude about',
+                                          options: [
+                                              { value: '', label: 'Ask Claude about…' },
+                                              ...hotspots.map((h) => ({ value: h.id, label: hotspotName(h) })),
+                                          ],
+                                          value: '',
+                                          onSelect: (value) => {
+                                              const h = hotspots.find((x) => x.id === value);
+                                              if (h) {
+                                                  record($, cell, 'explore', h.tip);
+                                              }
+                                              return undefined;
+                                          },
+                                      }),
+                                  ]
+                                : []),
+                        ],
+                    }),
                 );
             }
             if (cell.choices.length) {
