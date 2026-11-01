@@ -1,6 +1,6 @@
 {
     "name": "notebook",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "A living notebook pane: Claude adds diagrams, charts and choices as cells, and what you click or type in them reaches Claude",
     "author": { "name": "WallyDoodlez" }
 }

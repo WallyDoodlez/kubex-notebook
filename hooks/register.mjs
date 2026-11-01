@@ -92,13 +92,17 @@ export function register(on) {
         }
         cells = added.cells;
         await save($);
+        // A pane a mod opens by itself only shows in a wide window, so Claude is told where the cell is.
         const opened = await $.ui.open({ id: PANE, title: 'Notebook' });
-        if (!opened?.isPlaced) {
-            $.ui.toast(`Notebook cell #${added.cell.id} added. Run /nb to open the pane`);
-        }
         $.ui.invalidate('ui.render');
         const verb = e.replaces == null ? 'Added' : 'Replaced';
-        return { result: `${verb} cell #${added.cell.id} "${added.cell.title}". HTML copy: ${dir}/index.html` };
+        const where = opened?.isPlaced
+            ? 'It is showing in the notebook pane beside the conversation.'
+            : 'The notebook pane is closed: tell the person to run /nb to see it.';
+        if (!opened?.isPlaced) {
+            $.ui.toast(`Notebook cell #${added.cell.id} added. Run /nb to open the pane`, { timeoutMs: 8000 });
+        }
+        return { result: `${verb} cell #${added.cell.id} "${added.cell.title}". ${where}` };
     }).catch(async ($, e, next) => {
         return { result: `The notebook failed to add the cell (${next.error.kind}); answer in chat instead.` };
     });
