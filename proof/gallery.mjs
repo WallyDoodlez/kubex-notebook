@@ -46,9 +46,9 @@ function canvas(H = 340) {
 
 function sequence() {
     const c = canvas(350);
-    const actors = [['browser', 80], ['gateway', 240], ['auth', 400], ['redis', 560]];
-    for (const [name, x] of actors) {
-        c.box(x - 46, 16, 92, 30, name);
+    const actors = [['browser', 80, 'blue'], ['gateway', 240, 'teal'], ['auth', 400, 'amber'], ['redis', 560, 'violet']];
+    for (const [name, x, cls] of actors) {
+        c.box(x - 46, 16, 92, 30, name, { cls });
         c.add(`<path class="life" d="M${x} 46V306"/>`);
     }
     const msg = (x1, x2, y, label, cap, cls) => {
@@ -61,7 +61,7 @@ function sequence() {
     msg(240, 400, 118, 'refresh(token)', 'The gateway refreshes without bothering the browser', '');
     msg(400, 560, 156, 'GET jti', 'The refresh token is checked against the revoked list', '');
     msg(560, 400, 194, 'not revoked', 'A hit here would end the session', '');
-    msg(400, 240, 232, 'new JWT', 'A new access token, and a rotated refresh token', 'acc');
+    msg(400, 240, 232, 'new JWT', 'A new access token, and a rotated refresh token', 'green');
     msg(240, 80, 270, '200 + Set-Cookie', 'The original request succeeds; the user never noticed', '');
     return c.svg('Sequence of a silent token refresh');
 }
@@ -72,29 +72,29 @@ function flow() {
     c.box(124, 70, 76, 40, 'lint', { cap: 'ESLint and tsc, about 40 seconds' });
     c.box(232, 70, 76, 40, 'test', { cap: 'Unit tests in parallel, about 4 minutes' });
     c.box(340, 70, 76, 40, 'build', { cap: 'Docker image, tagged with the commit' });
-    c.add('<path class="node" d="M448 90L490 62L532 90L490 118Z"/><text class="sm" x="490" y="94" text-anchor="middle">main?</text>');
-    c.box(550, 70, 78, 40, 'deploy', { cap: 'Rolling deploy to production', cls: 'on' });
-    c.box(232, 186, 76, 40, 'notify', { cap: 'A failed job posts to the PR and stops the run' });
-    c.box(452, 186, 76, 40, 'preview', { cap: 'Other branches get a preview URL' });
+    c.add('<path class="node amber" d="M448 90L490 62L532 90L490 118Z"/><text class="sm" x="490" y="94" text-anchor="middle">main?</text>');
+    c.box(550, 70, 78, 40, 'deploy', { cap: 'Rolling deploy to production', cls: 'green' });
+    c.box(232, 186, 76, 40, 'notify', { cap: 'A failed job posts to the PR and stops the run', cls: 'red' });
+    c.box(452, 186, 76, 40, 'preview', { cap: 'Other branches get a preview URL', cls: 'blue' });
     c.arrow(92, 90, 124, 90);
     c.arrow(200, 90, 232, 90);
     c.arrow(308, 90, 340, 90);
     c.arrow(416, 90, 448, 90);
     c.arrow(532, 90, 550, 90, { label: 'yes', lx: 538, ly: 62 });
     c.arrow(490, 118, 490, 186, { label: 'no', lx: 506, ly: 156 });
-    c.arrow(162, 110, 248, 186, { dashed: true, label: 'fail', lx: 188, ly: 156 });
-    c.arrow(270, 110, 270, 186, { dashed: true, label: 'fail', lx: 288, ly: 156 });
+    c.arrow(162, 110, 248, 186, { dashed: true, cls: 'red', label: 'fail', lx: 188, ly: 156 });
+    c.arrow(270, 110, 270, 186, { dashed: true, cls: 'red', label: 'fail', lx: 288, ly: 156 });
     return c.svg('CI pipeline with its branches');
 }
 
 function state() {
     const c = canvas(300);
     c.box(20, 110, 96, 40, 'draft', { cap: 'Not ready; reviewers are not notified' });
-    c.box(170, 110, 96, 40, 'open', { cap: 'Waiting for review and for CI' });
-    c.box(330, 30, 130, 40, 'changes asked', { cap: 'A reviewer blocked it; a new push goes back to open' });
-    c.box(330, 190, 130, 40, 'approved', { cap: 'A new push can reset this, depending on branch rules' });
-    c.box(530, 190, 94, 40, 'merged', { cap: 'Final', cls: 'on' });
-    c.box(530, 30, 94, 40, 'closed', { cap: 'Final, but it can be reopened' });
+    c.box(170, 110, 96, 40, 'open', { cap: 'Waiting for review and for CI', cls: 'blue' });
+    c.box(330, 30, 130, 40, 'changes asked', { cap: 'A reviewer blocked it; a new push goes back to open', cls: 'amber' });
+    c.box(330, 190, 130, 40, 'approved', { cap: 'A new push can reset this, depending on branch rules', cls: 'green' });
+    c.box(530, 190, 94, 40, 'merged', { cap: 'Final', cls: 'violet' });
+    c.box(530, 30, 94, 40, 'closed', { cap: 'Final, but it can be reopened', cls: 'red' });
     c.arrow(116, 130, 170, 130, { label: 'ready' });
     c.arrow(256, 110, 330, 68, { label: 'review', lx: 322, ly: 98 });
     c.arrow(330, 44, 212, 110, { label: 'push', lx: 250, ly: 62, dashed: true });
@@ -106,16 +106,16 @@ function state() {
 
 function architecture() {
     const c = canvas(330);
-    c.box(20, 130, 90, 40, 'web', { cap: 'Next.js storefront' });
-    c.box(150, 130, 90, 40, 'gateway', { cap: 'Auth and routing; it owns no data' });
-    c.box(290, 50, 100, 40, 'orders', { cap: 'Owns the order state' });
-    c.box(290, 130, 100, 40, 'payments', { cap: 'Talks to Stripe; idempotent by order id' });
-    c.box(290, 210, 100, 40, 'catalog', { cap: 'Read-heavy, served through the cache' });
-    c.box(440, 50, 84, 40, 'kafka', { cap: 'order.placed fans out to everything downstream', cls: 'on' });
-    c.box(556, 50, 72, 40, 'email', { cap: 'A consumer: sends the receipt' });
+    c.box(20, 130, 90, 40, 'web', { cap: 'Next.js storefront', cls: 'blue' });
+    c.box(150, 130, 90, 40, 'gateway', { cap: 'Auth and routing; it owns no data', cls: 'blue' });
+    c.box(290, 50, 100, 40, 'orders', { cap: 'Owns the order state', cls: 'teal' });
+    c.box(290, 130, 100, 40, 'payments', { cap: 'Talks to Stripe; idempotent by order id', cls: 'teal' });
+    c.box(290, 210, 100, 40, 'catalog', { cap: 'Read-heavy, served through the cache', cls: 'teal' });
+    c.box(440, 50, 84, 40, 'kafka', { cap: 'order.placed fans out to everything downstream', cls: 'amber' });
+    c.box(556, 50, 72, 40, 'email', { cap: 'A consumer: sends the receipt', cls: 'teal' });
     c.box(440, 130, 84, 40, 'stripe', { cap: 'External', cls: 'ext' });
-    c.box(440, 210, 84, 40, 'redis', { cap: 'Read-through cache, 60 second TTL' });
-    c.box(556, 210, 72, 40, 'pg', { cap: 'Primary database' });
+    c.box(440, 210, 84, 40, 'redis', { cap: 'Read-through cache, 60 second TTL', cls: 'violet' });
+    c.box(556, 210, 72, 40, 'pg', { cap: 'Primary database', cls: 'violet' });
     c.arrow(110, 150, 150, 150);
     c.arrow(240, 142, 290, 80);
     c.arrow(240, 150, 290, 150);
@@ -139,22 +139,23 @@ function isometric() {
         c.add(`<g class="${hot}"><path class="node ${cls}" d="${side}"/><path class="node ${cls}" d="${top}"/></g>`);
     };
     plate(0, 0, 0, 250, 250, 8, 'The cluster: control plane plus two nodes');
-    plate(14, 14, 8, 104, 222, 8, 'A node: one machine; pods are scheduled onto it');
-    plate(132, 14, 8, 104, 222, 8, 'A second node: losing it reschedules its pods');
+    plate(14, 14, 8, 104, 222, 8, 'A node: one machine; pods are scheduled onto it', 'teal');
+    plate(132, 14, 8, 104, 222, 8, 'A second node: losing it reschedules its pods', 'teal');
     // Back to front, so nearer solids cover farther ones.
     const pods = [[26, 26], [144, 26], [26, 92], [144, 92], [26, 158]];
     pods.forEach(([x, y], i) => {
         const open = i === 3;
-        plate(x, y, 16, 80, 54, 6, open ? 'This pod holds the app and a log sidecar, which share a network' : 'A pod: the unit that gets scheduled', open ? 'on' : '');
+        plate(x, y, 16, 80, 54, 6, open ? 'This pod holds the app and a log sidecar, which share a network' : 'A pod: the unit that gets scheduled', 'blue');
         if (open) {
-            plate(x + 8, y + 8, 22, 28, 38, 20, 'A container: the app process');
-            plate(x + 44, y + 8, 22, 28, 38, 12, 'A container: the log sidecar');
+            plate(x + 8, y + 8, 22, 28, 38, 20, 'A container: the app process', 'violet');
+            plate(x + 44, y + 8, 22, 28, 38, 12, 'A container: the log sidecar', 'violet');
         }
     });
-    const names = [['cluster', 'the whole system'], ['node', 'a machine'], ['pod', 'scheduled together'], ['container', 'one process']];
-    names.forEach(([a, b], i) => {
-        c.text(484, 92 + i * 44, a, 'lb');
-        c.text(484, 108 + i * 44, b, 'sm');
+    const names = [['cluster', 'the whole system', ''], ['node', 'a machine', 'teal'], ['pod', 'scheduled together', 'blue'], ['container', 'one process', 'violet']];
+    names.forEach(([a, b, cls], i) => {
+        c.add(`<rect class="node ${cls}" x="484" y="${81 + i * 44}" width="12" height="12" rx="3"/>`);
+        c.text(504, 92 + i * 44, a, 'lb');
+        c.text(504, 108 + i * 44, b, 'sm');
     });
     return c.svg('Kubernetes containment: cluster, node, pod, container');
 }
@@ -168,6 +169,7 @@ function chart() {
         c.add(`<path class="grid" d="M60 ${f(y(v))}H620"/>`);
         c.text(52, y(v) + 4, `${v} ms`, 'sm', 'end');
     }
+    c.add(`<rect class="band red" x="${x(5.5)}" y="34" width="${x(9.5) - x(5.5)}" height="206"/>`);
     c.add(`<path class="line" d="M${pts.map((v, i) => `${f(x(i))} ${f(y(v))}`).join('L')}"/>`);
     c.add(`<path class="mark" d="M${x(5.5)} 34V240"/>`);
     c.text(x(5.5) + 6, 44, 'deploy 14:02', 'sm');
@@ -182,6 +184,7 @@ function chart() {
 
 function timeline() {
     const c = canvas(240);
+    const TINT = ['blue', 'red', 'amber', 'violet', 'green', 'green'];
     const events = [
         [40, '14:02', 'deploy', 'v2.31 rolls out'],
         [150, '14:09', 'alert', 'p95 over 400 ms pages on-call'],
@@ -194,7 +197,7 @@ function timeline() {
     events.forEach(([x, time, name, cap], i) => {
         const hot = c.hot(`${time} · ${cap}`);
         const up = i % 2 === 0;
-        c.add(`<g class="${hot}"><rect class="zone" x="${x - 50}" y="30" width="100" height="160"/><path class="wire" d="M${x} 110V${up ? 80 : 140}"/><circle class="pt ${i === 3 ? 'on' : ''}" cx="${x}" cy="110" r="4"/></g>`);
+        c.add(`<g class="${hot}"><rect class="zone" x="${x - 50}" y="30" width="100" height="160"/><path class="wire" d="M${x} 110V${up ? 80 : 140}"/><circle class="pt ${TINT[i]}" cx="${x}" cy="110" r="4.5"/></g>`);
         c.text(x, up ? 56 : 160, name, 'lb', 'middle');
         c.text(x, up ? 72 : 176, time, 'sm', 'middle');
     });
@@ -212,6 +215,7 @@ function compare() {
         ['extra cost', 'none', 'a cluster', 'by traffic'],
     ];
     const xs = [24, 216, 356, 496];
+    c.add('<rect class="band blue" x="344" y="14" width="132" height="238" rx="7"/>');
     cols.forEach((t, i) => c.text(xs[i], 34, t, i === 2 ? 'lb acct' : 'lb'));
     c.add('<path class="wire" d="M24 46H616"/>');
     rows.forEach((r, j) => {
@@ -234,13 +238,13 @@ function beforeAfter() {
     for (let i = 0; i < 12; i++) {
         const hot = c.hot('One query per order: 101 round trips, 410 ms');
         const x = 26 + i * 23;
-        c.add(`<rect class="node ${hot}" x="${x}" y="130" width="17" height="30" rx="3"/>`);
+        c.add(`<rect class="node red ${hot}" x="${x}" y="130" width="17" height="30" rx="3"/>`);
         c.arrow(160, 70, x + 8, 130);
     }
     c.text(160, 186, '… 101 queries · 410 ms', 'sm', 'middle');
     c.box(432, 40, 96, 30, 'list orders');
     c.arrow(480, 70, 480, 130);
-    c.box(410, 130, 140, 34, 'orders JOIN items', { cap: 'One query, a single round trip, 18 ms', cls: 'on' });
+    c.box(410, 130, 140, 34, 'orders JOIN items', { cap: 'One query, a single round trip, 18 ms', cls: 'green' });
     c.text(480, 186, '1 query · 18 ms', 'sm', 'middle');
     return c.svg('An N+1 query before and after the fix');
 }
@@ -251,7 +255,7 @@ function gitGraph() {
     const y0 = 150;
     c.add(`<path class="wire" d="M40 ${y0}H620"/>`);
     c.add(`<path class="wire acc" d="M150 ${y0}C190 ${y0} 190 80 230 80H420C460 80 460 ${y0} 510 ${y0}"/>`);
-    c.add(`<path class="wire dash" d="M330 ${y0}C350 ${y0} 360 210 390 210H430"/>`);
+    c.add(`<path class="wire amber dash" d="M330 ${y0}C350 ${y0} 360 210 390 210H430"/>`);
     main.forEach((x) => {
         const hot = c.hot('Commit on main');
         c.add(`<circle class="pt ${hot}" cx="${x}" cy="${y0}" r="5"/>`);
@@ -261,7 +265,7 @@ function gitGraph() {
         c.add(`<circle class="pt on ${hot}" cx="${x}" cy="80" r="5"/>`);
     });
     const hot = c.hot('hotfix: cherry-picked to the release branch, not merged back yet');
-    c.add(`<circle class="pt ${hot}" cx="430" cy="210" r="5"/>`);
+    c.add(`<circle class="pt amber ${hot}" cx="430" cy="210" r="5"/>`);
     c.text(620, y0 - 12, 'main', 'sm', 'end');
     c.text(340, 62, 'feature/retry', 'sm', 'middle');
     c.text(442, 214, 'release/2.31', 'sm');
@@ -270,9 +274,10 @@ function gitGraph() {
 
 function schema() {
     const c = canvas(290);
-    const table = (x, y, name, cols, w = 170) => {
+    const table = (x, y, name, cols, tint, w = 170) => {
         const hot = c.hot(`${name}: ${cols.length} columns`);
         c.add(`<g class="${hot}"><rect class="node" x="${x}" y="${y}" width="${w}" height="${30 + cols.length * 22}" rx="7"/></g>`);
+        c.add(`<path class="band ${tint}" d="M${x + 1} ${y + 30}V${y + 8}Q${x + 1} ${y + 1} ${x + 8} ${y + 1}H${x + w - 8}Q${x + w - 1} ${y + 1} ${x + w - 1} ${y + 8}V${y + 30}Z"/>`);
         c.text(x + 12, y + 20, name, 'lb');
         c.add(`<path class="wire" d="M${x} ${y + 30}H${x + w}"/>`);
         cols.forEach(([col, type], i) => {
@@ -280,9 +285,9 @@ function schema() {
             c.text(x + w - 12, y + 47 + i * 22, type, 'sm', 'end');
         });
     };
-    table(20, 30, 'users', [['id', 'uuid'], ['email', 'text'], ['created_at', 'time']]);
-    table(240, 30, 'orders', [['id', 'uuid'], ['user_id', 'fk'], ['status', 'enum'], ['total', 'int']]);
-    table(460, 90, 'order_items', [['order_id', 'fk'], ['sku', 'text'], ['qty', 'int']]);
+    table(20, 30, 'users', [['id', 'uuid'], ['email', 'text'], ['created_at', 'time']], 'blue');
+    table(240, 30, 'orders', [['id', 'uuid'], ['user_id', 'fk'], ['status', 'enum'], ['total', 'int']], 'teal');
+    table(460, 90, 'order_items', [['order_id', 'fk'], ['sku', 'text'], ['qty', 'int']], 'violet');
     c.arrow(240, 100, 190, 80, { label: 'n : 1', lx: 214, ly: 78 });
     c.arrow(460, 130, 410, 120, { label: 'n : 1', lx: 436, ly: 112 });
     return c.svg('Database tables and their relations');
@@ -290,7 +295,7 @@ function schema() {
 
 function blastRadius() {
     const c = canvas(300);
-    c.box(20, 112, 140, 44, 'formatMoney()', { cap: 'The function you changed', cls: 'on', sub: 'changed' });
+    c.box(20, 112, 140, 44, 'formatMoney()', { cap: 'The function you changed', cls: 'red', sub: 'changed' });
     const rows = [
         [36, 'CartTotal', 'Direct caller', 'checkout page', 'Two hops away'],
         [114, 'InvoicePdf', 'Direct caller: output goes to customers', 'tax report', 'Two hops: the export is snapshot tested'],
@@ -299,7 +304,7 @@ function blastRadius() {
     c.text(290, 22, 'calls it', 'sm', 'middle');
     c.text(530, 22, 'reaches', 'sm', 'middle');
     for (const [y, near, nearCap, far, farCap] of rows) {
-        c.box(220, y, 140, 40, near, { cap: nearCap });
+        c.box(220, y, 140, 40, near, { cap: nearCap, cls: 'amber' });
         c.box(460, y, 140, 40, far, { cap: farCap });
         c.arrow(160, 134, 220, y + 20);
         c.arrow(360, y + 20, 460, y + 20, { dashed: true });
@@ -322,7 +327,7 @@ function waterfall() {
         const hot = c.hot(`${name} · ${ms} ms · ${cap}`);
         c.text(20 + depth * 14, y + 16, name, 'sm');
         const width = Math.max(3, (ms / 450) * 470);
-        c.add(`<rect class="node ${ms === 310 ? 'on' : ''} ${hot}" x="${f(x(start))}" y="${y}" width="${f(width)}" height="24" rx="4"/>`);
+        c.add(`<rect class="node ${ms === 310 ? 'red' : depth ? 'blue' : ''} ${hot}" x="${f(x(start))}" y="${y}" width="${f(width)}" height="24" rx="4"/>`);
         c.text(width > 70 ? x(start) + 8 : x(start) + width + 6, y + 16, `${ms} ms`, 'sm');
     });
     return c.svg('A request trace as a waterfall');
@@ -356,8 +361,8 @@ console.log(`<!doctype html>
 <title>cc-notebook: output examples</title>
 <link rel="icon" href="data:,">
 <style>
-:root{--bg:#fbfbfa;--panel:#fff;--edge:#71717a;--mid:#a1a1aa;--lo:#e4e4e7;--hi:#18181b;--acc:#2563eb}
-@media (prefers-color-scheme:dark){:root{--bg:#08090a;--panel:#0d0e10;--edge:#a1a1aa;--mid:#52525b;--lo:#27272a;--hi:#fafafa;--acc:#60a5fa}}
+:root{--bg:#fbfbfa;--panel:#fff;--edge:#71717a;--mid:#a1a1aa;--lo:#e4e4e7;--hi:#18181b;--acc:#2563eb;--blue:#2563eb;--teal:#0d9488;--green:#16a34a;--amber:#d97706;--red:#dc2626;--violet:#7c3aed}
+@media (prefers-color-scheme:dark){:root{--bg:#08090a;--panel:#0d0e10;--edge:#a1a1aa;--mid:#52525b;--lo:#27272a;--hi:#fafafa;--acc:#60a5fa;--blue:#60a5fa;--teal:#2dd4bf;--green:#4ade80;--amber:#fbbf24;--red:#f87171;--violet:#a78bfa}}
 *{box-sizing:border-box}
 body{margin:0;padding:32px;background:var(--bg);color:var(--hi);font:14px/1.5 ui-monospace,Consolas,monospace}
 header{max-width:1320px;margin:0 auto 24px}
@@ -377,6 +382,11 @@ svg text{font-family:ui-monospace,Consolas,monospace;pointer-events:none}
 .node{fill:var(--panel);stroke:var(--edge);stroke-width:.9;transition:stroke .15s,fill .15s}
 .node.on{stroke:var(--acc);stroke-width:1.4}
 .node.ext{stroke-dasharray:3 3}
+.blue{--tint:var(--blue)}.teal{--tint:var(--teal)}.green{--tint:var(--green)}.amber{--tint:var(--amber)}.red{--tint:var(--red)}.violet{--tint:var(--violet)}
+.node[class*=" blue"],.node[class*=" teal"],.node[class*=" green"],.node[class*=" amber"],.node[class*=" red"],.node[class*=" violet"]{fill:color-mix(in srgb,var(--tint) 13%,var(--panel));stroke:color-mix(in srgb,var(--tint) 62%,var(--edge))}
+.wire.blue,.wire.teal,.wire.green,.wire.amber,.wire.red,.wire.violet{stroke:color-mix(in srgb,var(--tint) 75%,var(--edge))}
+.pt.blue,.pt.teal,.pt.green,.pt.amber,.pt.red,.pt.violet{fill:color-mix(in srgb,var(--tint) 30%,var(--panel));stroke:var(--tint);stroke-width:1.4}
+.band{fill:var(--tint);fill-opacity:.09;stroke:none}
 .wire{fill:none;stroke:var(--edge);stroke-width:.9}
 .wire.acc{stroke:var(--acc);stroke-width:1.3}
 .wire.dash{stroke-dasharray:3 4}
