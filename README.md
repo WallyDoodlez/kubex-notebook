@@ -13,6 +13,7 @@ A living notebook pane for Claude Code. When a picture or a choice explains more
   - **Hover:** parts wrapped in `hot(id, tip)[...]` get a tooltip and a highlight (Desktop app and the HTML copy).
   - **Dropdowns that redraw at once:** a cell's `params` show as dropdowns; changing one recompiles the drawing locally, with no model call, and Claude learns the change with your next message.
   - **Ask about a part:** an "Ask Claude about…" dropdown lists the marked parts; picking one goes to Claude like a choice.
+- **Bigger drawings:** every cell has **Open large**, which opens that cell alone in your browser, filling the window, and **Expand**, which makes the pane show only that cell.
 - **Follow-along** (`/nb follow`, or the **Following** button in the pane): after each substantial answer, the mod asks a fork of the conversation for one diagram of what just happened, or an update to an existing cell on the same topic. It runs in the background, so your next prompt never waits. It skips short answers, interrupted turns, subagents, and turns where Claude already added a cell. Each drawing is one extra model request over the cached conversation, billed like any other request in the session.
 - Every change also writes the notebook to `~/.cache/cc-notebook/<session-id>/` as `cells.json` and a self-contained `index.html`, with each drawing in a script-less sandboxed frame. Resuming a session restores its notebook.
 

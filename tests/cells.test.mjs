@@ -26,6 +26,12 @@ test('refuses bad input with a reason Claude can act on', () => {
     assert.match(addCell([], { title: 'T', svg: SVG }, 1).error, /alt/);
 });
 
+test('a large page fills the window', () => {
+    const cells = addCell([], { title: 'Flow', svg: SVG, alt: 'a box' }, 1).cells;
+    assert.match(notebookHtml(cells, { large: true }), /<body class="large">/);
+    assert.match(notebookHtml(cells), /<body>/);
+});
+
 test('turns interactions into context for the next prompt', () => {
     assert.equal(contextFor([]), null);
     const text = contextFor([

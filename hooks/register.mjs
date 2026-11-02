@@ -83,6 +83,8 @@ let drawing = false;
 // The Typst program, when the session found one at start.
 let typstBin = null;
 let compileCount = 0;
+// The one cell the pane is showing by itself, if any.
+let expanded = null;
 
 async function notebookDir($) {
     if (dir) {
@@ -216,6 +218,24 @@ async function setParam($, cell, name, value) {
     pending.push({ cellId: cell.id, title: cell.title, kind: 'set', value: `${label} to "${value}"` });
     $.ui.invalidate('ui.render');
     await save($);
+}
+
+// The nearest thing to a popup: one cell in its own page, filling a browser window.
+async function openLarge($, cell) {
+    const file = `${await notebookDir($)}/cell-${cell.id}.html`;
+    await $.fs.write(file, notebookHtml([cell], { title: `#${cell.id} ${cell.title}`, updatedAt: await $.clock.now(), large: true }));
+    const windows = (await $.env.get('OS')) === 'Windows_NT';
+    const openers = windows ? [['rundll32', 'url.dll,FileProtocolHandler', file.replace(/\//g, '\\')]] : [['open', file], ['xdg-open', file]];
+    for (const argv of openers) {
+        try {
+            if ((await $.process.run(argv, { timeoutMs: 10000 })).exitCode === 0) {
+                return;
+            }
+        } catch {
+            // No such opener here; try the next.
+        }
+    }
+    $.ui.toast(`Could not open a browser. The page is at ${file}`, { timeoutMs: 10000 });
 }
 
 async function setFollow($, on) {
@@ -359,7 +379,36 @@ export function register(on) {
         }
 
         const cellBox = (cell) => {
-            const children = [Text({ bold: true, children: [`#${cell.id} ${cell.title}`] })];
+            const children = [
+                Box({
+                    flexDirection: 'row',
+                    columnGap: 2,
+                    children: [
+                        Text({ bold: true, children: [`#${cell.id} ${cell.title}`] }),
+                        ...(cell.svg
+                            ? [
+                                  Button({
+                                      key: `large${cell.id}`,
+                                      label: 'Open large',
+                                      onPress: () => {
+                                          openLarge($, cell).catch(() => {});
+                                          return undefined;
+                                      },
+                                  }),
+                              ]
+                            : []),
+                        Button({
+                            key: `expand${cell.id}`,
+                            label: expanded === cell.id ? 'Show all' : 'Expand',
+                            onPress: () => {
+                                expanded = expanded === cell.id ? null : cell.id;
+                                $.ui.invalidate('ui.render');
+                                return undefined;
+                            },
+                        }),
+                    ],
+                }),
+            ];
             if (cell.markdown) {
                 children.push(Markdown({ text: cell.markdown }));
             }
@@ -462,7 +511,7 @@ export function register(on) {
             children: [
                 header,
                 ...(pending.length ? [Text({ dimColor: true, children: [eventsText(pending)] })] : []),
-                ...[...cells].reverse().map(cellBox),
+                ...[...cells].reverse().filter((cell) => expanded == null || cell.id === expanded).map(cellBox),
             ],
         });
     });
