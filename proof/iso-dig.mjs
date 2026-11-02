@@ -169,7 +169,7 @@ const zones = LAYERS.map((l, i) => {
             const top = hull(ring(0, 0, STEP, STEP, 11).flatMap(([a, b]) => [P2(a, b, zz), P2(a, b, zz + 30)]));
             return `<g class="step ${key2}"><g class="lift">${plate.svg}<path class="lead" d="M${f(nx + 8)} ${f(ny)}H${STEP_X - 8}"/><text class="rname" x="${STEP_X}" y="${f(ny + 2)}">${s + 1}  ${esc(name)}</text>${textLines('rdesc', STEP_X, ny + 19, wrap(cap, 47))}</g><path class="shit" d="${path(top)}"/></g>`;
         }).reverse().join('');
-        crumbsPart.push(`<text class="crumb cp${key}" x="24" y="34">cc-notebook / ${l.name} / ${esc(p.name)}</text>`);
+        crumbsPart.push(`<text class="crumb cp${key}" x="24" y="34">kubex-notebook / ${l.name} / ${esc(p.name)}</text>`);
         css.push(`svg:has(.g${key}:focus-within) .cp${key}{opacity:1}`);
         return `<g class="part g${key}" tabindex="0"><g class="body">${solid.svg}<text class="pname" x="${f(tx)}" y="${f(ty + 4)}">${esc(p.name)}</text>${row}</g><path class="phit ${key}" d="${solid.d}"/>${rowHit}<g class="detail">${steps}</g></g>`;
     }).join('');
@@ -182,7 +182,7 @@ const rules = LAYERS.flatMap((_, k) => LAYERS.map((_, i) => {
     return `svg:has(.h${k}:hover) .l${i}{transform:translateY(${shift}px);transition-delay:${Math.abs(i - k) * 40}ms}svg:has(.z${k}:focus-within) .l${i}{transform:translateY(${away}px);opacity:0}`;
 }));
 const lit = LAYERS.map((_, k) => `svg:has(.h${k}:hover) .l${k} .plate{stroke:var(--hi);stroke-width:1.4}`);
-const crumbs = LAYERS.map((l, k) => `<text class="crumb cz${k}" x="24" y="34">cc-notebook / ${l.name}</text>`);
+const crumbs = LAYERS.map((l, k) => `<text class="crumb cz${k}" x="24" y="34">kubex-notebook / ${l.name}</text>`);
 css.push(...LAYERS.map((_, k) => `svg:has(.z${k}:focus-within):not(:has(.part:focus-within)) .cz${k}{opacity:1}`));
 
 const STYLE = `
@@ -232,7 +232,7 @@ svg:has(.part:focus-within) .h-layer{opacity:0}
 svg:has(.part:focus-within) .h-part{opacity:1}
 ${rules.join('')}${lit.join('')}${css.join('')}`;
 
-console.log(`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="How cc-notebook works, as layers you can open">
+console.log(`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="How kubex-notebook works, as layers you can open">
 <style>${STYLE}
 </style>
 <rect class="bg" width="${W}" height="${H}"/>

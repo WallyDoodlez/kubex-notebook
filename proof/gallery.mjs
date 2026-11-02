@@ -449,7 +449,7 @@ console.log(`<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>cc-notebook: output examples</title>
+<title>kubex-notebook: output examples</title>
 <link rel="icon" href="data:,">
 <style>
 :root{--bg:#fbfbfa;--panel:#fff;--edge:#71717a;--mid:#a1a1aa;--lo:#e4e4e7;--hi:#18181b;--acc:#2563eb;--blue:#2563eb;--teal:#0d9488;--green:#16a34a;--amber:#d97706;--red:#dc2626;--violet:#7c3aed}
@@ -505,7 +505,7 @@ ${css.join('')}
 </head>
 <body>
 <header>
-<h1>What cc-notebook should draw for software work</h1>
+<h1>What kubex-notebook should draw for software work</h1>
 <p>The form follows the question. Hover anything for more. The data in these examples is made up.</p>
 </header>
 <main>

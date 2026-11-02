@@ -1,5 +1,5 @@
 {
-  "name": "cc-notebook",
+  "name": "kubex-notebook",
   "private": true,
   "type": "module",
   "scripts": { "test": "node --test tests/*.test.mjs" }

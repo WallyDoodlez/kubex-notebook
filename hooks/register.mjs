@@ -14,7 +14,7 @@ import {
 } from '../lib/typst.mjs';
 
 const PANE = 'notebook';
-const TOOL = 'mcp__notebook__add_cell';
+const TOOL = 'mcp__kubex-notebook__add_cell';
 
 const TOOL_DESCRIPTION = [
     'Add a cell to the notebook pane beside the conversation, or replace one with `replaces`.',
@@ -93,7 +93,7 @@ async function notebookDir($) {
     }
     const home = (await $.env.get('USERPROFILE')) || (await $.env.get('HOME')) || $.plugin.root;
     const cache = (await $.env.get('XDG_CACHE_HOME')) || `${home}/.cache`;
-    dir = `${cache.replace(/\\/g, '/')}/cc-notebook/${await $.session.id()}`;
+    dir = `${cache.replace(/\\/g, '/')}/kubex-notebook/${await $.session.id()}`;
     return dir;
 }
 

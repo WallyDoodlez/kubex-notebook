@@ -1,10 +1,10 @@
 {
-    "name": "cc-notebook",
+    "name": "kubex-notebook",
     "owner": { "name": "WallyDoodlez" },
-    "description": "The cc-notebook mod for Claude Code",
+    "description": "The kubex-notebook mod for Claude Code",
     "plugins": [
         {
-            "name": "notebook",
+            "name": "kubex-notebook",
             "source": "./",
             "description": "A living notebook pane: Claude adds diagrams, charts and choices as cells, and what you click or type in them reaches Claude"
         }
