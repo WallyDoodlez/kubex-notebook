@@ -4,6 +4,7 @@ import { notebookHtml } from '../lib/html.mjs';
 import {
     HOTSPOT_QUERY,
     addHotspots,
+    themedSvg,
     checkTypstBody,
     cleanParams,
     hotspotName,
@@ -97,10 +98,21 @@ async function notebookDir($) {
 }
 
 // The pane draws from memory; the files let a browser show the same notebook and a resume restore it.
+// The theme chosen in Claude Code, so a page matches it even when the system differs.
+async function pageTheme($) {
+    try {
+        const row = (await $.config.list()).find((r) => r.key === 'theme');
+        const value = String(row?.value ?? '');
+        return value.includes('dark') ? 'dark' : value.includes('light') ? 'light' : 'auto';
+    } catch {
+        return 'auto';
+    }
+}
+
 async function save($) {
     const d = await notebookDir($);
     await $.fs.write(`${d}/cells.json`, JSON.stringify({ cells, pending }, null, 2));
-    await $.fs.write(`${d}/index.html`, notebookHtml(cells, { title: 'Notebook', updatedAt: await $.clock.now() }));
+    await $.fs.write(`${d}/index.html`, notebookHtml(cells, { title: 'Notebook', updatedAt: await $.clock.now(), theme: await pageTheme($) }));
 }
 
 function record($, cell, kind, value) {
@@ -223,7 +235,7 @@ async function setParam($, cell, name, value) {
 // The nearest thing to a popup: one cell in its own page, filling a browser window.
 async function openLarge($, cell) {
     const file = `${await notebookDir($)}/cell-${cell.id}.html`;
-    await $.fs.write(file, notebookHtml([cell], { title: `#${cell.id} ${cell.title}`, updatedAt: await $.clock.now(), large: true }));
+    await $.fs.write(file, notebookHtml([cell], { title: `#${cell.id} ${cell.title}`, updatedAt: await $.clock.now(), large: true, theme: await pageTheme($) }));
     const windows = (await $.env.get('OS')) === 'Windows_NT';
     const openers = windows ? [['rundll32', 'url.dll,FileProtocolHandler', file.replace(/\//g, '\\')]] : [['open', file], ['xdg-open', file]];
     for (const argv of openers) {
@@ -339,6 +351,7 @@ export function register(on) {
         }
         const { Box, Text, Button, Markdown, Input, Select, Svg } = $.ui.resolve(e);
         const canDraw = typeof Svg === 'function' && e.surface !== 'terminal';
+        const theme = await pageTheme($);
 
         const header = Box({
             flexDirection: 'row',
@@ -415,7 +428,7 @@ export function register(on) {
             if (cell.svg) {
                 children.push(
                     canDraw
-                        ? Svg({ source: cell.svg, alt: cell.alt, isInteractive: true })
+                        ? Svg({ source: cell.typst ? themedSvg(cell.svg, theme) : cell.svg, alt: cell.alt, isInteractive: true })
                         : Text({ dimColor: true, children: [`[drawing] ${cell.alt} (shown in the Desktop app or /nb-html)`] }),
                 );
             }

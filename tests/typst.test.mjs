@@ -13,6 +13,7 @@ import {
     hotspotName,
     inputArgs,
     parseHotspots,
+    themedSvg,
     typstSource,
 } from '../lib/typst.mjs';
 
@@ -42,6 +43,15 @@ test('adds a hover area with a tooltip for each marked part', () => {
     assert.match(svg, /<rect class="nb-hot" x="3.0" y="13.0" width="44.0" height="22.0" rx="5"><title>Gateway: checks &lt;JWT&gt;<\/title><\/rect>/);
     assert.match(svg, /\.nb-hot:hover/);
     assert.equal(parseHotspots('not json').length, 0);
+});
+
+test('one drawing carries both themes, once', () => {
+    const svg = themedSvg('<svg><path fill="#1f2328"/></svg>');
+    assert.match(svg, /prefers-color-scheme:dark/);
+    assert.match(svg, /\[fill="#1f2328"\]\{fill:#e6edf3\}/);
+    assert.equal(themedSvg(svg), svg);
+    assert.doesNotMatch(themedSvg('<svg></svg>', 'dark'), /prefers-color-scheme/);
+    assert.equal(themedSvg('<svg></svg>', 'light'), '<svg></svg>');
 });
 
 test('reads a typst drawing from the follow-along reply', () => {

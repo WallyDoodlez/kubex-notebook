@@ -46,6 +46,6 @@ test('renders markdown and sandboxes svg in the HTML copy', () => {
     assert.match(markdownToHtml('# T\n- a\n- b\n\n`x` **y** <b>'), /<h2>T<\/h2>[\s\S]*<ul><li>a<\/li><li>b<\/li><\/ul>[\s\S]*<code>x<\/code> <strong>y<\/strong> &lt;b&gt;/);
     assert.equal(svgAspect(SVG), '640 / 200');
     const html = notebookHtml(addCell([], { title: 'Flow', svg: SVG, alt: 'a box', choices: ['A'] }, 1).cells);
-    assert.match(html, /<iframe class="svg" sandbox=""/);
+    assert.match(html, /<iframe class="svg paper" sandbox=""/);
     assert.doesNotMatch(html, /<svg viewBox/); // only escaped, inside srcdoc
 });
